@@ -1,0 +1,213 @@
+<!doctype html>
+<html>
+    <head>
+        <title>MédiaKlikk test</title>
+        <script type="text/javascript">
+
+            function getTagValue(text, tag) {
+                pos1 = text.indexOf(tag);
+                if (pos1 == -1) return null; // not found
+                pos2 = text.indexOf('"', pos1);
+                pos3 = text.indexOf('"', pos2+1);
+                return text.substring(pos2+1,pos3); // can be "" or "value"
+            }
+
+            function addTableRow(a, b, c, d, e, f) {
+                tableRef = document.getElementById("table");
+                newRow = tableRef.insertRow(-1);
+
+                newCell0 = newRow.insertCell(0);
+                newCell0.innerHTML = a;
+                newCell0.style = "vertical-align: top;";
+                newCell1 = newRow.insertCell(1);
+                newCell1.innerHTML = b;
+                newCell1.style = "vertical-align: top;";
+                newCell2 = newRow.insertCell(2);
+                newCell2.innerHTML = c;
+                newCell2.style = "vertical-align: top;";
+                newCell3 = newRow.insertCell(3);
+                newCell3.innerHTML = d;
+                newCell3.style = "vertical-align: top;";
+                newCell4 = newRow.insertCell(4);
+                newCell4.innerHTML = e;
+                newCell4.style = "vertical-align: top;";
+                newCell5 = newRow.insertCell(5);
+                newCell5.innerHTML = f;
+                newCell5.style = "vertical-align: top;";
+            }
+
+            async function getAPIResponseText(date) {
+                try {
+                    const body = new URLSearchParams();
+
+                    body.append("ChannelIds", "3,1,2,30,33,4,34,");
+                    body.append("ShortCodes", "dn,m1,m2,m4,m5,dw,m4p,");
+                    body.append("Names", "Duna,M1,M2,M4+Sport,M5,Duna+World,M4+Sport++,");
+                    body.append("Date", date);
+                    body.append("Type", "0");
+                    body.append("buttonType", "text_type");
+                    body.append("newDesign", "true");
+                    body.append("debug", "0");
+
+                    const response = await fetch("https://mediaklikk.hu/wp-content/plugins/hms-global-widgets/widgets/programGuide/programGuideInterface.php", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: body.toString(),
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+
+                    const responseText = await response.text();
+                    
+                    const textItemsArray = responseText.split('</li>');
+
+                    for (var i = 0; i < textItemsArray.length; i++)
+                    {
+                        text = textItemsArray[i];
+                        data_videolink = getTagValue(text,"data-videolink");
+
+                        if (data_videolink) { // there is recording
+                            data_from = getTagValue(text,"data-from");
+                            data_till = getTagValue(text,"data-till");
+
+                            if (data_from && data_till) {
+                                from = new Date(data_from);
+                                till = new Date(data_till);
+                                length = Math.floor((till - from) / 1000 / 60); // milliseconds --> minutes
+
+                                if (length >= 60) { // long enough
+                                    lengthHours = Math.floor(length / 60);
+                                    lengthMinutes = length % 60;
+
+                                    // class="elo dn "
+                                    channel = "";
+                                    temp = text.match(/class="elo\s+(\w+)\s*"/);
+                                    if (temp != null && temp.length >= 2) {
+                                        channel = temp[1];
+                                    }
+
+                                    if (channel != "m1") {
+
+                                        icon = "";
+                                        switch (channel) {
+                                            case "m2":
+                                                icon = "🎵";
+                                                break;
+                                            case "m4":
+                                                icon = "🤾";
+                                                break;
+                                            case "m5":
+                                                icon = "🎭";
+                                                break;
+                                            default:
+                                                break;
+                                        }
+
+                                        // div class="program_info" / <h1>
+                                        title = "";
+                                        split = text.split("program_info");
+                                        if (split != null && split.length >= 2) {
+                                            temp = split[1].match(/<h1>(.*?)<\/h1>/);
+                                            if (temp != null && temp.length >= 2) {
+                                                title = temp[1];
+                                            }
+                                        }
+
+                                        // div class="program_info" / <p> or <p >
+                                        title2 = "";
+                                        split = text.split("program_info");
+                                        if (split != null && split.length >= 2) {
+                                            temp = split[1].match(/<p(.*?)<\/p>/);
+                                            if (temp != null && temp.length >= 2) {
+                                                title2 = temp[1].split(">")[1];
+                                            }
+                                        }
+
+                                        // div class="program_description" / <p> or <p >
+                                        description = "";
+                                        split = text.split("program_description");
+                                        if (split != null && split.length >= 2) {
+                                            temp = split[1].match(/<p(.*?)<\/p>/);
+                                            if (temp != null && temp.length >= 2) {
+                                                description = temp[1].split(">")[1];
+                                            }
+                                        }
+                                        
+                                        addTableRow(
+                                            date,
+                                            channel,
+                                            icon,
+                                            lengthHours + ":" + ('00' + lengthMinutes).substr(-2),
+                                            "<A HREF=" + data_videolink + ">" + title + "</A>",
+                                            title2 + "<div>" + description
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                }
+            }
+            
+            async function callAPIs() {
+                for (days = 1; days <= 30; days++) {    // max 30 days history, recent days in the beginning
+                    d = new Date(); // today
+                    d.setDate(d.getDate() - days);
+                    past = d.getFullYear() + "-" + ('00' + d.getMonth()).substr(-2) + "-" + ('00' + d.getDate()).substr(-2);
+                    console.log(past);
+                    await getAPIResponseText(past);
+                }
+            }
+
+            document.addEventListener('readystatechange', event => { 
+                // When window loaded
+                if (event.target.readyState === "complete") {
+                    callAPIs();
+                }
+            });
+        </script>
+    </head>
+    <body>
+        <table id="table" border="1px solid black"></table>
+    </body>
+</html>
+
+<!-- example item section
+
+<li class="program_body m5   available " 
+    style="" 
+    data-from="2025-09-13 21:03:55+0200" data-till="2025-09-13 22:25:54+0200" 
+    data-bci="1" data-vpi="8787207 "data-vpslug="kalman-imre-a-cirkuszhercegno"  data-videolink="https://mediaklikk.hu/kultura/video/2025/09/15/kultura/kalman-imre-a-cirkuszhercegno">
+    <div class="time">
+        <time >21:03</time>
+        <div class="elo m5 " style="display: none" onclick="window.open('https://mediaklikk.hu/kultura/video/2025/09/15/kultura/kalman-imre-a-cirkuszhercegno', '_programguide_playbackPopupVideo')"><span class="live_play"></span>Élő</div>
+        <div class="status available "></div>
+    </div>
+    <div class="program_data">
+        <div class="program_info">
+            <h1> Kálmán Imre: A cirkuszhercegnő </h1>
+            <p style='display: none'></p>
+            <div class="isOpenIndicator"></div>
+            <div class="adultContentLimit"><div class="acl-0">0</div></div>
+        </div>
+        <div class="program_about" style="display: none;">
+            <div class="program_description" >
+                <p>A Cirkuszhercegnő Kálmán Imre egyik leglátványosabb és legszenvedélyesebb operettje, amely a cirkusz varázslatos világát ötvözi a műfaj elbűvölő romantikájával. A történet középpontjában egy titokzatos herceg és egy bátor artistalány sorsa fonódik össze, miközben a háttérben fel-felbukkan a múlt, a szerelem és az álarc mögé rejtett igazság. A darab lenyűgöző zenei anyaga – köztük a híres Zweiten Csárdás – a korabeli pesti és bécsi színpadok fényét idézi. A Budapesti Operettszínház előadásában a klasszikus operettformát modern színházi eszközökkel és cirkuszi látványelemekkel ötvözték. A rendező, Homonnay Zsolt kellő érzékenységgel és finomsággal teremtett egyensúlyt a látványos show-elemek és a mély érzelmek között. A nagyívű szerelmi történet, a finom humor és a varázslatos díszletek együtt teremtenek felejthetetlen színházi élményt. A porondon és a kulisszák mögött is izzik a feszültség, miközben a nézők egy estére a csodák birodalmába csöppenhetnek.</p>
+            </div>
+            <button class="playback" onclick="window.open('https://mediaklikk.hu/kultura/video/2025/09/15/kultura/kalman-imre-a-cirkuszhercegno', '_programguide_playbackPopupVideo')">Nézze vissza</button>
+            
+        </div>
+    </div>
+</li>
+
+https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_expressions/Cheatsheet
+
+-->
+
