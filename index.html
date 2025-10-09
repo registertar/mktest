@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
     <head>
-        <title>MédiaKlikk test</title>
+        <title>mktest</title>
         <script type="text/javascript">
 
             function getTagValue(text, tag) {
@@ -12,7 +12,7 @@
                 return text.substring(pos2+1,pos3); // can be "" or "value"
             }
 
-            function addTableRow(a, b, c, d, e, f) {
+            function addTableRow(a, b, c, d, e, f, g) {
                 tableRef = document.getElementById("table");
                 newRow = tableRef.insertRow(-1);
 
@@ -34,9 +34,12 @@
                 newCell5 = newRow.insertCell(5);
                 newCell5.innerHTML = f;
                 newCell5.style = "vertical-align: top;";
+                newCell6 = newRow.insertCell(6);
+                newCell6.innerHTML = g;
+                newCell6.style = "vertical-align: top;";
             }
 
-            async function getAPIResponseText(date) {
+            async function getAPIResponseText(index, date) {
                 try {
                     const body = new URLSearchParams();
 
@@ -138,12 +141,13 @@
                                         }
                                         
                                         addTableRow(
-                                            date,
-                                            channel,
-                                            icon,
-                                            lengthHours + ":" + ('00' + lengthMinutes).substr(-2),
-                                            "<A HREF=" + data_videolink + ">" + title + "</A>",
-                                            title2 + "<div>" + description
+                                            "<div>" + index + "</div>",
+                                            "<div>" + date + "</div>",
+                                            "<div>" + channel + "</div>",
+                                            "<div>" + icon + "</div>",
+                                            "<div>" + lengthHours + ":" + ('00' + lengthMinutes).substr(-2) + "</div>",
+                                            "<div><a href=" + data_videolink + ">" + title + "</a></div>",
+                                            "<div>" + title2 + "</div><div>" + description + "</div>"
                                         );
                                     }
                                 }
@@ -151,18 +155,21 @@
                         }
                     }
 
+                    counterRef = document.getElementById("counter");
+                    counterRef.innerHTML = index;
+
                 } catch (error) {
                     console.error('Fetch error:', error);
                 }
             }
             
             async function callAPIs() {
-                for (days = 1; days <= 30; days++) {    // max 30 days history, recent days in the beginning
+                for (index = 0; index <= 60; index++) {    // max 60 days history, recent days in the beginning
                     d = new Date(); // today
-                    d.setDate(d.getDate() - days);
-                    past = d.getFullYear() + "-" + ('00' + d.getMonth()).substr(-2) + "-" + ('00' + d.getDate()).substr(-2);
-                    console.log(past);
-                    await getAPIResponseText(past);
+                    d.setDate(d.getDate() - index);
+                    date = d.getFullYear() + "-" + ('00' + (d.getMonth() + 1)).substr(-2) + "-" + ('00' + d.getDate()).substr(-2); // getMonth is zero-based
+                    console.log(date);
+                    await getAPIResponseText(index, date);
                 }
             }
 
@@ -175,6 +182,7 @@
         </script>
     </head>
     <body>
+        <div id="counter">...</div>
         <table id="table" border="1px solid black"></table>
     </body>
 </html>
